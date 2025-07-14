@@ -60,12 +60,22 @@ class GoogleDriveHandler:
 
         return GoogleDrive(gauth)
 
-    def download_file(self, file_id, file_name, local_folder=None):
+    def download_file(self, file_name,file_id=None, local_folder=None):
         local_folder=self.base_path
         try:
             print("Downloading file...")
-            if file_name is None or file_id is None:
-                raise ValueError("file_name and file_id are required")
+            if  file_name is None:
+                raise ValueError("file_name is required")
+
+            if file_id is None:
+                print(f"Searching for file: {file_name}")
+                file_list = self.drive.ListFile({
+                'q': f"title='{file_name}' and trashed=false"
+                }).GetList()
+
+                if not file_list:
+                    raise FileNotFoundError(f"No file named '{file_name}' found on Drive.")
+                file_id = file_list[0]['id']
 
             file = self.drive.CreateFile({'id': file_id})
             file_path = os.path.join(local_folder, file_name)
@@ -221,18 +231,18 @@ df=None
 agent=None
 save_file_path=None
 save_file_name=None
-save_file_id=None
+#save_file_id=None
 
 @mcp.tool("analyze_stock_data") 
-def analyze_stock_data(query:str,file_id:str="",file_name:str="")->dict:
-    global agent,save_file_path,save_file_name,save_file_id
+def analyze_stock_data(query:str,file_name:str="")->dict:
+    global agent,save_file_path,save_file_name
     try:
-        if not save_file_id:
-            if not file_id or not file_name:
-                raise ValueError("file id and Name are required")
-            save_file_id=file_id
+        if not save_file_name:
+            if  not file_name:
+                raise ValueError("file name is  required")
+            #save_file_id=file_id
             save_file_name=file_name
-            save_file_path=drive.download_file(save_file_id,save_file_name)['file_path']
+            save_file_path=drive.download_file(save_file_name)['file_path']
               
         
         initialized_data_and_agent()
@@ -243,7 +253,7 @@ def analyze_stock_data(query:str,file_id:str="",file_name:str="")->dict:
         # Enhance the prompt for better natural-language output
         enhanced_prompt = f"""
         You are a financial data analyst. Explain the result of this analysis query clearly for a non-technical audience. 
-        Start with a short summary in plain English, followed by key insights, statistics, or relevant calculations if needed.
+        Start with a short summary , followed by key insightsc and plots
 
         Query: {query}
         """
@@ -273,6 +283,6 @@ def analyze_stock_data(query:str,file_id:str="",file_name:str="")->dict:
         return {"status": "error", "message": str(e)}
 
 if __name__=="__main__":
-    mcp.run()
+    mcp.run(transport="streamable-http")
     
 
